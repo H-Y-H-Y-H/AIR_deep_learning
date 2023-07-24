@@ -1,9 +1,11 @@
 # https://pytorch.org/tutorials/beginner/basics/quickstart_tutorial.html
+import numpy as np
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
 from torchvision import datasets
 from torchvision.transforms import ToTensor
+import matplotlib.pyplot as plt
 
 # Get cpu, gpu or mps device for training.
 device = (
@@ -38,7 +40,9 @@ class NeuralNetwork(nn.Module):
 # Training loop
 def train(epochs,train_dataloader,test_dataloader, model, loss_fn, optimizer):
 
-    best_acc = 0
+    best_acc = 0.
+    train_L = []
+    test_L = []
     for t in range(epochs):
         print(f"Epoch {t + 1}\n-------------------------------")
         num_batches = len(train_dataloader)
@@ -56,7 +60,9 @@ def train(epochs,train_dataloader,test_dataloader, model, loss_fn, optimizer):
             optimizer.step()
             optimizer.zero_grad()
             train_loss += loss.item()
-        print('Training Loss: ', train_loss/num_batches)
+        mean_loss =  train_loss/num_batches
+        print('Training Loss: ',mean_loss)
+        train_L.append(mean_loss)
 
         size = len(test_dataloader.dataset)
         num_batches = len(test_dataloader)
@@ -70,16 +76,20 @@ def train(epochs,train_dataloader,test_dataloader, model, loss_fn, optimizer):
                 correct += (pred.argmax(1) == y).type(torch.float).sum().item()
         test_loss /= num_batches
         correct /= size
+        mean_loss = test_loss/num_batches
+        test_L.append(mean_loss)
         print(f"Test Error: \n Accuracy: {(100 * correct):>0.1f}%, Avg loss: {test_loss:>8f} \n")
         if best_acc < correct:
             best_acc = correct
-            torch.save(model.state_dict(), "best_model.pth")
+            torch.save(model.state_dict(), save_path + "best_model.pth")
             print("Saved PyTorch Model State to model.pth")
 
 def main():
+
+    # hyperparameters
     learning_rate = 1e-3
     batch_size = 64
-    epochs = 10
+    epochs = 100
 
     # Download training data from open datasets.
     training_data = datasets.FashionMNIST(
@@ -98,12 +108,18 @@ def main():
     )
 
     # Create data loaders.
-    train_dataloader = DataLoader(training_data, batch_size=batch_size)
-    test_dataloader = DataLoader(test_data, batch_size=batch_size)
+    train_dataloader = DataLoader(training_data, batch_size=batch_size, shuffle=True)
+    test_dataloader = DataLoader(test_data, batch_size=batch_size, shuffle=False)
 
     for X, y in test_dataloader:
         print(f"Shape of X [N, C, H, W]: {X.shape}")
         print(f"Shape of y: {y.shape} {y.dtype}")
+        img = X[0].transpose(0,2).numpy()
+        img = np.dstack((img,img,img))
+
+        plt.imshow(img)
+        plt.show()
+        print(y)
         break
 
     model = NeuralNetwork().to(device)
@@ -112,25 +128,11 @@ def main():
     loss_fn = nn.CrossEntropyLoss()
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate)
 
-
-    train(epochs,train_dataloader, test_dataloader, model, loss_fn, optimizer)
-
+    train(epochs, train_dataloader, test_dataloader, model, loss_fn, optimizer)
 
 if __name__ == "__main__":
 
-    main()
-
-    # Use the best model to predict the labels of the images in test dataset.
-    # test()
-
-    # Tips: Loading models:
-    # model = NeuralNetwork().to(device)
-    # model.load_state_dict(torch.load("best_model.pth"))
-
-    # visualization: pip install matplotlib
-    # 2 curve training and testing loss
-    # images
-
+    save_path = 'data/'
     classes = [
         "T-shirt/top",
         "Trouser",
@@ -143,5 +145,19 @@ if __name__ == "__main__":
         "Bag",
         "Ankle boot",
     ]
+
+    main()
+
+    # Use the best model to predict the labels of the images in test dataset.
+    # test()
+
+    # Tips: Loading models:
+    # model = NeuralNetwork().to(device)
+    # model.load_state_dict(torch.load(save_path + "best_model.pth"))
+
+    # visualization: pip install matplotlib
+    # 2 curve training and testing loss
+    # images
+
 
     # Try to improve the model accuracy:
